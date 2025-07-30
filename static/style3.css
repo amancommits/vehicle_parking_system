@@ -1,3 +1,4 @@
+<<<<<<< HEAD
     .navbar {
       padding: 1.5rem 2rem;
       font-size: 1.3rem;
@@ -32,4 +33,40 @@
     .btn-disabled {
       pointer-events: none;
       opacity: 0.65;
+=======
+    .navbar {
+      padding: 1.5rem 2rem;
+      font-size: 1.3rem;
+    }
+    .navbar-brand {
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    .nav-link, .btn {
+      font-size: 1.3rem;
+    }
+    .form-control-lg {
+      font-size: 1.2rem;
+      padding: 1.2rem;
+    }
+    h4 {
+      font-size: 1.8rem;
+      margin-bottom: 1.2rem;
+    }
+    table th, table td {
+      font-size: 1.25rem;
+      padding: 1.3rem;
+    }
+    .btn-sm {
+      padding: 0.7rem 1.4rem;
+      font-size: 1.1rem;
+    }
+    .search-container {
+      margin-top: 2rem;
+      margin-bottom: 2.5rem;
+    }
+    .btn-disabled {
+      pointer-events: none;
+      opacity: 0.65;
+>>>>>>> e8efd319f640df93cef922a8deb0dff1bcf2423c
     }

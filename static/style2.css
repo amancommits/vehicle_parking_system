@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 *{
 margin: 0px;
 
@@ -68,4 +69,76 @@ body {
       background-size: cover;         /* Make it cover the whole body */
       background-position: center;    /* Center the image */
       
+=======
+*{
+margin: 0px;
+
+}
+#main,canvas{
+  border: 2px solid black;
+  margin-top: 0px;
+  margin: auto;
+  margin-bottom: 2px;
+} 
+#canvas{
+  width: 60%;
+  margin: auto;
+  height: 780px;
+  border: black;
+  margin-bottom: 20px;
+  margin-top: 20px;
+  border-radius: 30px;
+   /* Add your image URL here 
+  background-image: url('1635.jpg'); 
+
+  /* Make the background cover the entire page 
+  background-size: cover;
+
+  /* Prevent the image from repeating */
+  background-repeat: no-repeat;
+
+  /* Center the image */
+  background-position: center;
+
+  /* Optional: fix the image on scroll */
+  background-attachment: fixed;
+  
+}
+.text-center{
+  padding-top: 20px;
+  font-size: 20px;
+}
+#form-body{
+  width: 600px;
+  height: 700px;
+  border: 1px solid black;
+  margin: auto;
+  margin-top: 50px;
+  padding: 10px;
+  border-radius: 10px;
+  background-color: white;
+}
+.input-group input-group-lg{
+  margin-bottom: 20px;
+  margin-top: 20px;
+  padding-top: 20px;
+}
+.input-group{
+  height: 70px;
+  margin-bottom: 20px;
+}
+.location-lg{
+margin-top: 20px;
+}
+.text-color{
+  color: rgba(204, 167, 80, 0.938);
+}
+body {
+      /* Replace the URL with your image path */
+      background-image: url('/static/1635.jpg'); 
+      background-repeat: no-repeat;   /* Prevent tiling */
+      background-size: cover;         /* Make it cover the whole body */
+      background-position: center;    /* Center the image */
+      
+>>>>>>> e8efd319f640df93cef922a8deb0dff1bcf2423c
   }
