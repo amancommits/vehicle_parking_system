@@ -101,6 +101,20 @@ def new_parking():
         return redirect(url_for('admin'))
     return render_template('new_parking.html')
 
+@app.route('/spot_details/<int:spot_id>')
+def spot_details(spot_id):
+    spot = Spot.query.get_or_404(spot_id)
+
+    # Make sure the spot is booked
+    if spot.status.lower() != 'booked' and spot.user_id is None:
+        return "This spot is not currently booked.", 404
+
+    user = User.query.get(spot.user_id)
+    release = Release.query.filter_by(spot_id=spot.id, user_id=user.id).order_by(Release.parked_at.desc()).first()
+
+    return render_template('spot_details.html', spot=spot, user=user, release=release)
+
+
 @app.route('/edit_parking.html/<int:lot_id>', methods=['GET', 'POST'])
 def edit_parking(lot_id):
     lot = Lot.query.get_or_404(lot_id)
