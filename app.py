@@ -4,6 +4,9 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")
+from datetime import datetime, timedelta
+import pytz
+LOCAL_TZ = pytz.timezone('Asia/Kolkata')
 
 app = Flask(__name__)
 
@@ -11,7 +14,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///parking.db'
 app.config['SECRET_KEY'] = 'Parking@123'
 
 
-#connecting db and app with init_app
 db.init_app(app)
 
 
@@ -69,7 +71,7 @@ def user_login():
 def user_dashboard(user_id):
     booker = User.query.get(user_id)
     current_spot = Spot.query.filter_by(user_id=user_id, status="Booked").all()
-    history = Release.query.filter_by(user_id=user_id).order_by(Release.released_at.desc()).all()
+    history = Release.query.filter(Release.user_id == user_id,Release.released_at.isnot(None)).order_by(Release.released_at.desc()).all()
     return render_template('user_dashboard.html', booker=booker, current_spot=current_spot,history=history)
 
 @app.route('/admin.html', methods=['GET', 'POST'])
@@ -87,13 +89,7 @@ def new_parking():
         pin_code = request.form.get('pin_code')
         maximum_spots = int(request.form.get('maximum_spots'))
     
-        new_lot = Lot(
-            prime_location=prime_location,
-            price=price,
-            address=address,
-            pin_code=pin_code,
-            maximum_spots=maximum_spots
-            )
+        new_lot = Lot(prime_location=prime_location,price=price,address=address,pin_code=pin_code,maximum_spots=maximum_spots)
 
         db.session.add(new_lot)
         db.session.commit()
@@ -129,24 +125,30 @@ def edit_parking(lot_id):
 def view_spot(lot_id):
     lot = Lot.query.get_or_404(lot_id)
 
-    # Fetch existing spots for this lot
-    existing_spots = Spot.query.filter_by(lot_id=lot.id).order_by(Spot.spot_number).all()
-    current_count = len(existing_spots)
+    spots = Spot.query.filter_by(lot_id=lot.id).order_by(Spot.spot_number).all()
+    current_count = len(spots)
 
-    # Create missing spots (if any)
     if current_count < lot.maximum_spots:
         for i in range(current_count + 1, lot.maximum_spots + 1):
             new_spot = Spot(
                 lot_id=lot.id,
                 spot_number=i,
                 status='available',
-                user_id=1 
+                user_id=None
             )
             db.session.add(new_spot)
-        db.session.commit()
-        existing_spots = Spot.query.filter_by(lot_id=lot.id).order_by(Spot.spot_number).all()
 
-    return render_template('view_spot.html', lot=lot, spots=existing_spots)
+    elif current_count > lot.maximum_spots:
+        for spot in spots:
+            if spot.spot_number > lot.maximum_spots:
+                db.session.delete(spot)
+
+    db.session.commit()
+
+    spots = Spot.query.filter_by(lot_id=lot.id).order_by(Spot.spot_number).all()
+
+    return render_template('view_spot.html', lot=lot, spots=spots)
+
 
 @app.route('/book')
 def book():
@@ -157,75 +159,92 @@ def book():
 
 
 @app.route('/book_spot/<int:lot_id>/<int:user_id>')
-def book_spot(lot_id,user_id):
+def book_spot(lot_id, user_id):
     lot = Lot.query.get_or_404(lot_id)
-    spots = Spot.query.filter_by(lot_id=lot.id, status='available').order_by(Spot.spot_number).all()
     booker = User.query.get_or_404(user_id)
-    return render_template('book_spot.html', lot=lot, spots=spots, booker=booker)
 
+    # Get the first available spot in this lot
+    spot = Spot.query.filter_by(lot_id=lot.id, status='available').order_by(Spot.spot_number).first()
 
-@app.route('/confirm_booking/<int:spot_id>/<int:user_id>')
-def confirm_booking(spot_id,user_id):
-    booker = User.query.get_or_404(user_id)
-    spot = Spot.query.get_or_404(spot_id)
-    spot.status="Booked"
-    spot.user_id = user_id  
+    if not spot:
+        return "No available spots in this lot.", 404  # Or flash a message / redirect to user_dashboard with error
+
+    # Book the spot
+    spot.status = "Booked"
+    spot.user_id = user_id
     db.session.commit()
-    existing_release = Release.query.filter_by(spot_id=spot.id, user_id=user_id, released_at=None).first()
-    if not existing_release:
-        new_release = Release(
-            spot_id=spot.id,
-            user_id=user_id,
-            parked_at=datetime.utcnow(),
-            released_at=None,   # still parked
-            cost=0              # will be calculated on release
-        )
-        db.session.add(new_release)
-        db.session.commit()
-    current_spot = Spot.query.filter_by(user_id=user_id, status="Booked").all()
-    history = Release.query.filter_by(user_id=user_id).order_by(Release.released_at.desc()).all()
-    return render_template('user_dashboard.html', booker=booker, current_spot=current_spot,history=history)
+
+    # Create a new Release record
+    new_release = Release(
+        spot_id=spot.id,
+        user_id=user_id,
+        parked_at=datetime.now(LOCAL_TZ),
+        released_at=None,
+        cost=0
+    )
+    db.session.add(new_release)
+    db.session.commit()
+
+    return redirect(url_for('user_dashboard', user_id=user_id))
+
 
 @app.route('/release/<int:spot_id>/<int:user_id>', methods=['POST'])
-def release(spot_id,user_id):
+def release(spot_id, user_id):
     spot = Spot.query.get_or_404(spot_id)
     booker = User.query.get_or_404(user_id)
+
     last_release = Release.query.filter_by(spot_id=spot.id, user_id=user_id, released_at=None).first()
-    parked_time = last_release.parked_at if last_release else datetime.utcnow()
-    released_time = datetime.utcnow()
-    duration_hours = max(1, int((released_time - parked_time).total_seconds() / 3600))
-    cost = spot.lot.price*duration_hours
-    return render_template('release.html',booker=booker, spot=spot, cost=cost)
+
+    if last_release:
+        parked_time = last_release.parked_at
+        released_time = datetime.now(LOCAL_TZ)
+
+        if parked_time.tzinfo is None:
+            parked_time = LOCAL_TZ.localize(parked_time)
+
+        duration_hours = max(1, int((released_time - parked_time).total_seconds() / 3600))
+        cost = spot.lot.price * duration_hours
+
+    else:
+        duration_hours = 1
+        cost = spot.lot.price * 1
+
+    return render_template('release.html', booker=booker, spot=spot, cost=cost)
 
 @app.route('/confirm_release/<int:spot_id>/<int:user_id>', methods=['POST'])
-def confirm_release(spot_id,user_id):
-    if request.method == 'POST':
-        action = request.form.get('action')
-        if action == 'cancel':
-            return redirect(url_for('user_dashboard', user_id=user_id))
-        spot = Spot.query.get_or_404(spot_id)
-        booker = User.query.get_or_404(user_id) 
-        spot.status="available"
-        spot.user_id = None
+def confirm_release(spot_id, user_id):
+    action = request.form.get('action')
+    if action == 'cancel':
+        return redirect(url_for('user_dashboard', user_id=user_id))
+
+    spot = Spot.query.get_or_404(spot_id)
+    booker = User.query.get_or_404(user_id)
+
+    spot.status = "available"
+    spot.user_id = None
+    db.session.commit()
+
+   
+    released_time = datetime.now(LOCAL_TZ)
+    existing_release = Release.query.filter_by(spot_id=spot.id, user_id=booker.id, released_at=None).first()
+
+    if existing_release:
+        parked_time = existing_release.parked_at
+
+        if parked_time.tzinfo is None:
+            parked_time = LOCAL_TZ.localize(parked_time)
+
+        duration_hours = max(1, int((released_time - parked_time).total_seconds() / 3600))
+        cost = spot.lot.price * duration_hours
+
+        existing_release.released_at = released_time
+        existing_release.cost = cost
         db.session.commit()
-        released_time = datetime.utcnow()
-        
-        # Find existing release with no released_at
-        existing_release = Release.query.filter_by(spot_id=spot.id, user_id=booker.id, released_at=None).first()
-        if existing_release:
-            parked_time = existing_release.parked_at
-            duration_hours = max(1, int((released_time - parked_time).total_seconds() / 3600))
-            cost = spot.lot.price * duration_hours
 
-            # Update it
-            existing_release.released_at = released_time
-            existing_release.cost = cost
-            db.session.commit()
+    current_spot = Spot.query.filter_by(user_id=user_id, status="Booked").all()
+    history = Release.query.filter_by(user_id=user_id).order_by(Release.released_at.desc()).all()
 
-        current_spot = Spot.query.filter_by(user_id=user_id, status="Booked").all()
-        history = Release.query.filter_by(user_id=user_id).order_by(Release.released_at.desc()).all()
-        print("History count after release:", len(history)) 
-    return render_template('user_dashboard.html', booker=booker,current_spot=current_spot,history=history)
+    return render_template('user_dashboard.html', booker=booker, current_spot=current_spot, history=history)
 
 @app.route('/search_lot')
 def search_lot():
@@ -282,7 +301,6 @@ def admin_summary():
 def user_summary(user_id):
     booker = User.query.get_or_404(user_id)
 
-    # Count bookings per lot by this user
     booking_data = (
         db.session.query(Lot.prime_location, db.func.count(Release.id))
         .join(Spot, Spot.lot_id == Lot.id)
@@ -295,11 +313,9 @@ def user_summary(user_id):
     lot_names = [row[0] for row in booking_data]
     booking_counts = [row[1] for row in booking_data]
 
-    # Plotting
     plt.bar(lot_names, booking_counts)
     plt.xlabel("Lot")
     plt.ylabel("Bookings")
-    plt.title(f"Your Booking Summary ({booker.username})")
     plt.xticks(rotation=45)
     plt.tight_layout()
   
@@ -313,6 +329,7 @@ def user_summary(user_id):
 
 
 if __name__ == '__main__':
-    with app.app_context():         #initialisation of database
+    with app.app_context():         
         db.create_all()
         initialize_admin()
+        app.run(debug=True)

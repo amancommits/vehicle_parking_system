@@ -48,7 +48,7 @@ margin: 0px;
 }
 body {
       /* Replace the URL with your image path */
-      background-image: url('/static/1234.jpg'); 
+      background-image: url('/static/1635.jpg'); 
       background-repeat: no-repeat;   /* Prevent tiling */
       background-size: cover;         /* Make it cover the whole body */
       background-position: center;    /* Center the image */

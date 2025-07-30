@@ -38,5 +38,5 @@ class Release(db.Model):
     spot_id = db.Column(db.Integer, db.ForeignKey('spot.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     parked_at = db.Column(db.DateTime, server_default=db.func.now())
-    released_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
-    cost = db.Column(db.Integer, nullable=False)   
+    released_at = db.Column(db.DateTime, nullable=True) 
+    cost = db.Column(db.Integer, nullable=True) 
