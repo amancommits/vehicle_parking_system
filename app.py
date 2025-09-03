@@ -181,7 +181,7 @@ def book_spot(lot_id, user_id):
     spot = Spot.query.filter_by(lot_id=lot.id, status='available').order_by(Spot.spot_number).first()
 
     if not spot:
-        return "No available spots in this lot.", 404  # Or flash a message / redirect to user_dashboard with error
+        return "No available spots in this lot.", 404  
 
     # Book the spot
     spot.status = "Booked"
